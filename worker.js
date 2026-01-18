@@ -6,6 +6,10 @@ const config={
         allowOrigin: "*",
         allowMethods: "GET",
         allowHeaders: "*"
+    },
+    security:{
+        allowHosts:["example.com"],
+        httpsOnly
     }
 };
 const corsHeaders={
@@ -28,12 +32,16 @@ export default {
         );
 
         const targetUrlRaw=url.pathname.replace(config.proxy.basePath,"");
+        if(targetUrlRaw.startsWith("https://")&&!targetUrlRaw.startsWith("http://"))return errorResponse("Invalid URL", 400);
         let targetUrl="";
         try{
             targetUrl=new URL(targetUrlRaw);
         }catch(e){
             return errorResponse("Invalid URL",400);
         }
+
+        if(config.security.httpsOnly&&targetUrl.protocol!=="https")return errorResponse("HTTPS only", 403);
+        if(config.security.allowHosts.length>0 && !config.security.allowHosts.includes(targetUrl.hostname))return errorResponse("Forbidden host", 403);
 
         const proxyReq=new Request(targetUrl.toString(),{
             method:req.method,
