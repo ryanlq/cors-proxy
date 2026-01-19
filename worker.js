@@ -1,3 +1,4 @@
+
 const config={
     proxy:{
         basePath: "", //proxy endpoint example: http://your-proxy.com/{basePath}/{targetURL}
@@ -8,10 +9,11 @@ const config={
         allowHeaders: "*"
     },
     security:{
-        allowHosts:["example.com"],
-        httpsOnly
+        allowHosts:[],
+        httpsOnly:false
     }
 };
+
 const corsHeaders={
     "Access-Control-Origin":config.cors.allowOrigin,
     "Access-Control-Method":config.cors.allowMethods,
