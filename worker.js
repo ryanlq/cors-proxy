@@ -1,81 +1,33 @@
-
-const config={
-    proxy:{
-        basePath: "", //proxy endpoint example: http://your-proxy.com/{basePath}/{targetURL}
-    },
-    cors:{
-        allowOrigin: "*",
-        allowMethods: "GET",
-        allowHeaders: "*"
-    },
-    security:{
-        allowHosts:[],
-        httpsOnly:false
-    }
-};
-
-const corsHeaders={
-    "Access-Control-Origin":config.cors.allowOrigin,
-    "Access-Control-Method":config.cors.allowMethods,
-    "Access-Control-Headers":config.cors.allowHeaders
-}
-
 export default {
-    async fetch(req){
-        const url=new URL(req.url);
-        if(!url.pathname.startsWith(config.proxy.basePath))return errorResponse("Not Found.", 404);
+  async fetch(request) {
+    try {
+      const url = new URL(request.url);
+      const target = url.pathname.slice(1) + url.search;
 
+      if (!target.startsWith("http://") && !target.startsWith("https://")) {
+        return new Response("Usage: /https://example.com", { status: 400 });
+      }
 
-        if(req.method==="OPTIONS")return new Response(null,
-            {
-                status: 204,
-                headers: corsHeaders()
-            }
-        );
+      const resp = await fetch(target, {
+        method: request.method,
+        headers: request.headers,
+        body: request.method !== "GET" && request.method !== "HEAD"
+          ? await request.arrayBuffer()
+          : undefined,
+      });
 
-        const targetUrlRaw=url.pathname.replace(config.proxy.basePath,"");
-        if(targetUrlRaw.startsWith("https://")&&!targetUrlRaw.startsWith("http://"))return errorResponse("Invalid URL", 400);
-        let targetUrl="";
-        try{
-            targetUrl=new URL(targetUrlRaw);
-        }catch(e){
-            return errorResponse("Invalid URL",400);
-        }
+      const headers = new Headers(resp.headers);
+      headers.set("Access-Control-Allow-Origin", "*");
+      headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      headers.set("Access-Control-Allow-Headers", "*");
 
-        if(config.security.httpsOnly&&targetUrl.protocol!=="https")return errorResponse("HTTPS only", 403);
-        if(config.security.allowHosts.length>0 && !config.security.allowHosts.includes(targetUrl.hostname))return errorResponse("Forbidden host", 403);
+      return new Response(resp.body, {
+        status: resp.status,
+        headers,
+      });
 
-        const proxyReq=new Request(targetUrl.toString(),{
-            method:req.method,
-            headers:req.headers,
-            body:req.method==="GET"?null:req.body,
-            redirect:"follow"
-        });
-
-        try{
-            const res=await fetch(proxyReq);
-            const headers=new Headers(res.headers);
-            setCorsHeaders(headers);
-
-            return new Response(res.body,{
-                headers,
-            })
-        }catch(e){
-            return errorResponse("Proxy fetch faild", 582);
-            
-        }
+    } catch (err) {
+      return new Response("Proxy Error: " + err.message, { status: 500 });
     }
-}
-
-function setCorsHeaders(header){
-    header.set("Access-Control-Origin",config.cors.allowOrigin);
-    header.set("Access-Control-Method",config.cors.allowMethods);
-    header.set("Access-Control-Headers",config.cors.allowHeaders);
-}
-
-function errorResponse(message,status){
-    return new Response(message,{
-        status,
-        headers:corsHeaders()
-    })
+  }
 };
